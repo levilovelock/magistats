@@ -1,8 +1,7 @@
 package main
 
-import "fmt"
+import "github.com/levilovelock/magistats/app"
 
 func main() {
-	x := "fuu"
-	fmt.Println(x)
+	app.Start()
 }
