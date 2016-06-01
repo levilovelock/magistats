@@ -3,6 +3,7 @@ package scraper
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -90,6 +91,68 @@ func parseEventFromLink(rawEventLink string) (*magic.LeagueEvent, error) {
 }
 
 func parseEventFromDirectURL(url string) (*magic.LeagueEvent, error) {
-	// TODO: Add result parsing here
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	z := html.NewTokenizer(resp.Body)
+	foundDecklists := false
+
+	// Loop through HTML to find the start of the decklists DIV
+	for {
+		tt := z.Next()
+		if foundDecklists {
+			break
+		}
+
+		if tt == html.ErrorToken {
+			return nil, errors.New("Could not find decklist in HTML parsing")
+		}
+		if tt == html.StartTagToken {
+			t := z.Token()
+			if t.Data == "div" {
+				for _, attr := range t.Attr {
+					if attr.Key == "class" && attr.Val == "decklists" {
+						// Found the start of the decklists, so break with the tokenizer at the front
+						foundDecklists = true
+						break
+					}
+				}
+			}
+		}
+	}
+
+	entries := []*magic.LeagueEntry{}
+	// Loop over all decks (aka winning entries)
+	for {
+		tt := z.Next()
+		if tt == html.ErrorToken {
+			break
+		}
+
+		if tt == html.StartTagToken {
+			t := z.Token()
+			if t.Data == "h4" {
+				entry, entryParseErr := parseEntry(z)
+				if entryParseErr != nil {
+					return nil, entryParseErr
+				}
+				entries = append(entries, entry)
+			}
+		}
+	}
+
+	if len(entries) == 0 {
+		return nil, errors.New("Error parsing decks, found zero decks in HTML!")
+	}
+
+	return nil, nil
+}
+
+func parseEntry(z *html.Tokenizer) (*magic.LeagueEntry, error) {
+	z.Next()
+	fmt.Println(z.Token().String())
+
 	return nil, nil
 }
